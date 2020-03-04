@@ -383,7 +383,7 @@ bool gpib_cmd(const uint8_t* bytes, uint8_t length) {
 /**
  *	Write a GPIB CMD byte to the bus.
  */
-uint8_t gpib_cmd_b(uint8_t b) {
+bool gpib_cmd_b(uint8_t b) {
 	uint8_t buf[2];
 	buf[0] = b; buf[1] = 0;
 	return _gpib_write(buf, 1, true, false);
