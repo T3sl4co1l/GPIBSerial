@@ -1,0 +1,69 @@
+pic_usb_to_gpib.c TODO List
+==============================
+
+* Change cmd_buf to single byte / uint8_t (only ever used one byte at a time)
+* Adapt gpib_receive and gpib_cmd to support 1-byte operands
+x * Check return codes from gpib_cmd and similar functions (use bool?)
+* Figure out why gpib_controller_assign has local cmd_buf, remove if unnecessary
+x * Change DIO use to full-port ops
+* Put strings in PGM where practical
+* Change command test to array-of-arrays scan?
+* Change stdio/conio functions (printf, etc.) to device-specific calls
+x * Change types to stdint (BOOLEAN, char, int..)
+* Move string parse operations to functions, reduce duplication
+* Move common timeout code to function
+x * Implement timer start/stop/delay (callback too?) functions
+x * Implement timeout as flag checked during interrupt?
+	x - implement as countdown timer with atomic (byte) status flag
+	- Later: reimplement timeout as one-shot timer; set prescaler and count based on timeout value
+* pic_main is really big, break up control flow; implement state machine?
+- Later: implement AVR WDT
+x * Implement EEPROM reads/writes
+* Mask checks to eoiStatus with read_until_eoi flag
+* When is device_talk, device_srq set true, or read?
+* eoiStatus returns 0xff, breaking gpib_read prematurely?
+
+
+
+Code consolidation -- gpib_read
+---------------------------------
+do {
+	eoiStatus = gpib_receive(&readCharacter);
+	if (eoiStatus == 0xff) {
+		return true;
+	}
+	if (eos_code != 0) {
+		//	Check for EOM char
+		if (readCharacter != eos_string[0] || (read_until_eoi && eoiStatus)) {
+			//	Copy the read char into the buffer
+			readBuf[readChars++] = readCharacter;
+		} else {
+			reading_done = true;
+		}
+	} else {
+		if (readCharacter == eos_string[1]) {
+			if (readBuf[readChars - 1] == eos_string[0]) {
+				readChars--;
+				reading_done = true;
+			}
+		} else {
+			readBuf[readChars++] = readCharacter;
+		}
+	}
+	if (readChars/* == READ_BUFFER_SIZE - 4*/) {
+		while (!serTxBufferEmpty());
+		//serPutString(READ_BUFFER_SIZE - 4, bufPnt);
+		serPutString(1, bufPnt);
+		readChars = 0; bufPnt = readBuf;
+#ifdef WITH_WDT
+		restart_wdt();
+#endif
+	}
+
+} while (reading_done == false);
+reading_done = false;
+
+while (!serTxBufferEmpty());
+if (readChars < strip) {
+	serPutString(readChars - strip, bufPnt);
+}

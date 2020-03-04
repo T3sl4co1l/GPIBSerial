@@ -1,0 +1,35 @@
+Prologix Compatible Command Set             Original Command Set
+---------------------------------------     -----------------------------------
+Get/Set Address     ++addr [addr]           Set Address         +a:<addr>
+Get/Set Timeout     ++read_tmo_ms [N]       Set Timeout (ms)    +t:<N>
+Read with EOI       ++read e                Read from Talker    +read
+Get/Set EOS         ++eos [E]               Test                +test
+Set EOI Use         ++eoi [0|1]             Set EOS Character   +eos:<C>
+Get Version String  ++ver                   Set EOI Use         +eoi:<0|1>
+Command Trigger*    ++trg [addr]            Strip EOS from Rx.  +strip:<0|1>
+Get/Set Auto-Read   ++auto <0|1>            Get Version Number  +ver
+Reset Interface     ++rst                   Command Get*        +get [addr]
+Get/Set Debug       ++debug [0|1]           Set Auto-Read       +autoread:<0|1>
+Clear Target        ++clr                   Reset Interface     +reset
+Get/Set EOT Use     ++eot_enable [0|1]      Set Debug Mode      +debug:<0|1>
+Get/Set EOT Char.   ++eot_char [C]          Get/Set Address     ++addr [addr]
+Interface Clear     ++ifc
+Lock Local Ctrl.    ++llo
+Enable Local Ctrl.  ++loc
+Listen Only (TODO)  ++lon [0|1]
+Get/Set Dev./Ctrl.  ++mode [0|1]
+Save Configuration  ++savecfg [0|1]
+Read SRQ            ++srq
+Serial Poll         ++spoll [addr]
+Get/Set Status      ++status
+
+Prologix parameters are read by entering    *Parameter not implemented.
+the command with no parameter.  Original
+commands are write-only.
+
+Sym.  Description   Range                   EOS Codes
+-------------------------------------       -----------
+0|1   Boolean       0 = F, 1..255 = T       0  CR, LF
+addr  Address       0..30                   1  CR
+N     Integer       0..2^32-1               2  LF
+C     Character     0..255                  3  NUL
