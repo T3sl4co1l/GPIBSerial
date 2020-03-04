@@ -123,8 +123,8 @@ const eeprom_settings_t ConfigData EEMEM = {
 };
 
 #define WITH_TIMEOUT
-#define WITH_WDT
-#define VERBOSE_DEBUG
+//#define WITH_WDT
+//#define VERBOSE_DEBUG
 
 
 /* * *  Functions  * * */
@@ -197,6 +197,10 @@ void initialize(void) {
 	stopTimer();
 
 	//	Init WDT
+#ifdef WITH_WDT
+	//CCPWrite(&(WDT.CTRL), WDT_PER_1KCLK_gc | WDT_ENABLE_bm | WDT_CEN_bm);
+	wdt_enable(WDTO_1S);
+#endif
 
 	// Flow port pins will always be outputs
 	PORT_TE.OUTCLR = BIT_TE; PORT_TE.DIRSET = BIT_TE;
@@ -360,7 +364,7 @@ bool assignGpibController(uint8_t address) {
 					//	controller in charge.
 	startTimer(200);
 	while (!timerExpired) {
-		restart_wdt();
+		ResetWdt();
 	};
 	DeassertIfc();	// Finishing clearing interface
 
@@ -390,13 +394,6 @@ uint8_t gpib_cmd_b(uint8_t b) {
  */
 bool gpib_write(const uint8_t* bytes, uint8_t length, bool useEOI) {
 	return _gpib_write(bytes, length, false, useEOI);
-}
-
-/**
- *	Temporary stub
- */
-void restart_wdt(void) {
-	return;
 }
 
 /**
@@ -436,7 +433,7 @@ bool _gpib_write(const uint8_t* bytes, uint8_t length, bool attention, bool useE
 #ifdef WITH_TIMEOUT
 	startTimer(timeoutMillis);
 	while (ReadNdac() || !ReadNrfd()) {
-		restart_wdt();
+		ResetWdt();
 		if (timerExpired) {
 			if (debug) {
 				serPutString(STRING_AND_LENGTH("Timeout: Before writing "));
@@ -470,7 +467,7 @@ bool _gpib_write(const uint8_t* bytes, uint8_t length, bool attention, bool useE
 #ifdef WITH_TIMEOUT
 		startTimer(timeoutMillis);
 		while(ReadNdac()) {
-			restart_wdt();
+			ResetWdt();
 			if (timerExpired) {
 				if (debug) {
 					serPutString(STRING_AND_LENGTH("Timeout: Waiting for NDAC to go low while writing"));
@@ -495,7 +492,7 @@ bool _gpib_write(const uint8_t* bytes, uint8_t length, bool attention, bool useE
 #ifdef WITH_TIMEOUT
 		startTimer(timeoutMillis);
 		while(!ReadNrfd()) {
-			restart_wdt();
+			ResetWdt();
 			if (timerExpired) {
 				if (debug) {
 					serPutString(STRING_AND_LENGTH("Timeout: Waiting for NRFD to go high while writing"));
@@ -522,7 +519,7 @@ bool _gpib_write(const uint8_t* bytes, uint8_t length, bool attention, bool useE
 #ifdef WITH_TIMEOUT
 		startTimer(timeoutMillis);
 		while(!ReadNdac()) {
-			restart_wdt();
+			ResetWdt();
 			if (timerExpired) {
 				if (debug) {
 					serPutString(STRING_AND_LENGTH("Timeout: Waiting for NDAC to go high while writing"));
@@ -579,7 +576,7 @@ uint8_t gpib_receive(uint8_t* byt) {
 #ifdef WITH_TIMEOUT
 	startTimer(timeoutMillis);
 	while(ReadDav()) {
-		restart_wdt();
+		ResetWdt();
 		if (timerExpired) {
 			if (debug) {
 				serPutString(STRING_AND_LENGTH("Timeout: Waiting for DAV to go low while reading"));
@@ -617,7 +614,7 @@ uint8_t gpib_receive(uint8_t* byt) {
 #ifdef WITH_TIMEOUT
 	startTimer(timeoutMillis);
 	while (!ReadDav()) {
-		restart_wdt();
+		ResetWdt();
 		if (timerExpired) {
 			if (debug) {
 				serPutString(STRING_AND_LENGTH("Timeout: Waiting for DAV to go high while reading"));
@@ -717,7 +714,7 @@ bool gpib_read(bool read_until_eoi) {
 				serPutString(1, bufPnt);
 				readChars = 0; bufPnt = readBuf;
 #ifdef WITH_WDT
-				restart_wdt();
+				ResetWdt();
 #endif
 			}
 
@@ -759,7 +756,7 @@ bool gpib_read(bool read_until_eoi) {
 				serPutString(1, bufPnt);
 				readChars = 0; bufPnt = readBuf;
 #ifdef WITH_WDT
-				restart_wdt();
+				ResetWdt();
 #endif
 			}
 
@@ -887,17 +884,6 @@ void pic_main(void) {
 
 	PORT_TP.OUTSET = BIT_TP;	//	Turn on the error LED
 
-	// Setup the Watchdog Timer
-#ifdef WITH_WDT
-	setup_wdt(WDT_ON);
-#endif
-#ifdef WITH_TIMEOUT
-	// Setup the timer
-	//set_rtcc(0);
-	//setup_timer_2(T2_DIV_BY_16,144,2); // 1ms interupt
-	//enable_interrupts(GLOBAL);
-#endif
-
 	// Handle the EEPROM stuff
 	if (eeprom_read_byte((uint8_t*)&ConfigData.valEepCode) == VALID_EEPROM_CODE) {
 		mode =				eeprom_read_byte((uint8_t*)&ConfigData.mode);
@@ -960,20 +946,24 @@ void pic_main(void) {
 	}
 
 #ifdef VERBOSE_DEBUG
-	switch (restart_cause()) {
-	case WDT_TIMEOUT:
+	if (RST.STATUS & RST_WDRF_bm) {
+		RST.STATUS = RST_WDRF_bm;
 		serPutString(STRING_AND_LENGTH("WDT restart\r\n"));
-		break;
-	case NORMAL_POWER_UP:
+	}
+	if (RST.STATUS & RST_SRF_bm) {
+		RST.STATUS = RST_SRF_bm;
+		serPutString(STRING_AND_LENGTH("Soft restart\r\n"));
+	}
+	if (RST.STATUS & RST_PORF_bm) {
+		RST.STATUS = RST_PORF_bm;
 		serPutString(STRING_AND_LENGTH("Normal power up\r\n"));
-		break;
 	}
 #endif
 
 	//	Main execution loop
 	while (1) {
 #ifdef WITH_WDT
-		restart_wdt();
+		ResetWdt();
 #endif
 		//	Receive lines from serial input
 		if (!serRxBufferEmpty()) {
@@ -1026,7 +1016,7 @@ void pic_main(void) {
 							serPutByte(eot_char);
 						}
 						//_delay_ms(1);
-						//reset_cpu();
+						//ResetCpu();
 					}
 				// ++read
 				} else if ((strncmp((char*)buf_pnt + 1, (char*)readCmdBuf, 5) == 0) && mode) {
@@ -1138,11 +1128,11 @@ void pic_main(void) {
 				// +reset
 				} else if (strncmp((char*)buf_pnt, (char*)resetBuf, 6) == 0) {
 					_delay_ms(1);
-					reset_cpu();
+					ResetCpu();
 				// ++rst
 				} else if (strncmp((char*)buf_pnt, (char*)rstBuf, 5) == 0) {
 					_delay_ms(1);
-					reset_cpu();
+					ResetCpu();
 				// +debug:{0|1}
 				} else if (strncmp((char*)buf_pnt, (char*)debugBuf, 7) == 0) {
 					debug = !!atoi((char*)(buf_pnt + 7));
@@ -1273,7 +1263,7 @@ void pic_main(void) {
 				// Send out command to the bus
 #ifdef VERBOSE_DEBUG
 				serPutString(STRING_AND_LENGTH("gpib_write: "));
-				serPutNumDec(buf_pnt);
+				serPutString(strlen((char*)buf_pnt), buf_pnt);
 				serPutByte(eot_char);
 #endif
 
@@ -1285,7 +1275,7 @@ void pic_main(void) {
 							writeError = gpib_write(eos_string, 0, eoiUse);
 #ifdef VERBOSE_DEBUG
 						serPutString(STRING_AND_LENGTH("eos_string: "));
-						serPutString(strlen(eos_string), eos_string);
+						serPutString(strlen((char*)eos_string), eos_string);
 						serPutByte(eot_char);
 #endif
 					} else {
@@ -1371,7 +1361,7 @@ void pic_main(void) {
 					if (device_listen) {
 						AssertNdac();
 #ifdef VERBOSE_DEBUG
-						serPutString(STRING_AND_LENGTH(Starting device mode gpib_read));
+						serPutString(STRING_AND_LENGTH("Starting device mode gpib_read"));
 						serPutByte(eot_char);
 #endif
 						gpib_read(eoiUse);

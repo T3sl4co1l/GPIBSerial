@@ -11,6 +11,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
+#include <avr/wdt.h>
 #include <util/atomic.h>
 #include <util/delay.h>
 #include "bufserial.h"
@@ -121,7 +122,8 @@
 #define stopTimer()			disableTimerInt()
 void startTimer(uint32_t time);
 
-#define reset_cpu()			RST.CTRL = RST_SWRST_bm
+#define ResetWdt()			wdt_reset()
+#define ResetCpu()			RST.CTRL = RST_SWRST_bm
 
 #ifndef numelem
 #define numelem(x)			( sizeof(x) / sizeof(x[0]) )
@@ -153,7 +155,6 @@ void initGpibPins();
 bool assignGpibController(uint8_t address);
 bool gpib_cmd(const uint8_t* bytes, uint8_t length);
 bool gpib_write(const uint8_t* bytes, uint8_t length, bool useEOI);
-void restart_wdt(void);
 uint8_t myprintf(const char* s, ...);
 bool _gpib_write(const uint8_t* bytes, uint8_t length, bool attention, bool useEOI);
 uint8_t gpib_receive(uint8_t* byt);
