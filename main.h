@@ -131,7 +131,7 @@ void startTimer(uint32_t time);
 
 #define VALID_EEPROM_CODE	0xaa
 
-#define SER_ECHO
+//#define SER_ECHO
 
 typedef struct eeprom_settings_s {
 	uint8_t valEepCode;		//	VALID_EEPROM_CODE

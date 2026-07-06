@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "stdlib_itoa.h"
 #include <string.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
